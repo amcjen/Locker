@@ -144,6 +144,38 @@ locker.post('/Me/*', function(req,res){
 });
 
 
+// AUTH PROXY
+// all of the requests to something installed (proxy them, moar future-safe)
+locker.post('/auth/save', function(req,res) {
+    var serviceType = req.param('serviceType');
+    var 
+});
+
+// all of the requests to something installed (proxy them, moar future-safe)
+locker.get('/auth/*', function(req,res) {
+    var slashIndex = req.url.indexOf("/", 11);
+    var serviceType = req.url.substring(11, slashIndex);
+    var finalPath = req.url.substring(slashIndex+1);
+    
+    
+    console.log("Proxying a get to " + finalPath + " to service " + req.url);
+    if(!serviceManager.isInstalled(serviceType)) { // make sure it exists before it can be opened
+        res.writeHead(404);
+        res.end("so sad, couldn't find "+serviceType);
+        return;
+    }
+    if (!serviceManager.isRunning(serviceType)) {
+        console.log("Having to spawn " + serviceType);
+        serviceManager.spawn(id,function(){
+            proxied('GET', serviceManager.metaInfo(id),finalPath,req,res);
+        });
+    } else {
+        proxied('GET', serviceManager.metaInfo(id),ppath,req,res);
+    }
+    console.log("Proxy complete");
+});
+
+
 // DIARY
 // Publish a user visible message
 locker.post("/:svcId/diary", function(req, res) {
@@ -302,6 +334,7 @@ locker.get('/keychain/get', function(req, res) {
 });
 
 
+// DASHBOARD
 // fallback everything to the dashboard
 locker.get('/*', function(req, res) {
     proxied('GET', dashboard.instance,req.url.substring(1),req,res);
