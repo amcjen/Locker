@@ -12,7 +12,12 @@ var querystring = require('querystring');
 var lconfig = require('./lconfig.js');
 
 exports.putObject = function(serviceType, object, meta, callback) {
-    post('put', {serviceType:serviceType, object:object, meta:meta}, (callback? callback : function(){}));
+    post('put', {serviceType:serviceType, object:object, meta:meta}, function(err, body) {
+        if(callback) {
+            callback(err, body);
+        }
+    });
+//    (callback? callback : function(){}));
 }
 
 exports.grantPermission = function(serviceID, serviceType, index, callback) {
@@ -36,9 +41,9 @@ function get(endpoint, params, callback) {
     }, function(err, resp, body) {
         if(body)
             body = JSON.parse(body);
-        if(resp.statusCode < 400)
+        if(resp.statusCode < 400 && callback)
             callback(err, body);
-        else
+        else if(callback)
             callback(body);
     });
 }
@@ -50,7 +55,7 @@ function post(endpoint, params, callback) {
     }, function(err, resp, body) {
         if(body)
             body = JSON.parse(body);
-        callback(err, body);
+        if(callback) callback(err, body);
     });
 }
 

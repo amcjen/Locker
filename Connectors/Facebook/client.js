@@ -24,6 +24,7 @@ var fs = require('fs'),
                     connect.cookieParser(),
                     connect.session({secret : "locker"})),
     locker = require('../../Common/node/locker.js'),
+    keychain = require('../../Common/node/keychain-client.js'),
     lfs = require('../../Common/node/lfs.js');
 
 var wwwdude = require('wwwdude'),
@@ -384,13 +385,14 @@ stdin.on('data', function (chunk) {
     var processInfo = JSON.parse(chunk);
     locker.initClient(processInfo);
     process.chdir(processInfo.workingDirectory);
-    lfs.readObjectFromFile('auth.json', function(newAuth) {
+    me = lfs.loadMeData();
+    keychain.getObject(me.id, me.authType, me.authIndex, function(err, newAuth) {
         auth = newAuth;
+        sys.debug('auth = ' + JSON.stringify(auth));
         lfs.readObjectFromFile('latests.json', function(newLatests) {
             latests = newLatests;
             lfs.readObjectFromFile('userInfo.json', function(newUserInfo) {
                 userInfo = newUserInfo;
-                me = lfs.loadMeData();
                 app.listen(processInfo.port);
                 var returnedInfo = {port: processInfo.port};
                 console.log(JSON.stringify(returnedInfo));

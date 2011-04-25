@@ -19,7 +19,7 @@ vows.describe("Keychain Client API").addBatch({
         topic:function() {
             var promise = new(events.EventEmitter);
             keychainClient.putObject(srvType, {'test2':2}, null, function(err, resp) {
-                if(err) {
+                if(err || resp.index != 0) {
                     promise.emit('error', false);
                 } else {
                     keychainClient.putObject(srvType, {'test':1}, {'username': 'Mr. Locker Test'}, function(err, resp) {

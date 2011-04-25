@@ -3,7 +3,8 @@
     "action":"Connect to a Facebook account",
     "desc":"Collect and sync my (open graph) data from my Facebook account using Facebook Connect and a Facebook 'app' that I create just for myself.",
     "run":"node client.js",
-    "auth":"node auth.js",
+    "authRequired":"oauth2/facebook",
+    "authType":"oauth2/facebook",
     "status":"unstable",
     "provides":["contact/facebook","status/facebook"]
 }

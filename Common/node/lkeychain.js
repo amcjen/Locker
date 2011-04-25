@@ -23,6 +23,7 @@ exports.putObject = function(serviceType, object, meta) {
         chain.objects[serviceType].push(obj);
     }
     write();
+    return chain.objects[serviceType].length - 1;
 }
 
 exports.grantPermission = function(serviceID, serviceType, index) {

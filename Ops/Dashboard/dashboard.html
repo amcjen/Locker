@@ -56,6 +56,9 @@
             padding-right:5px;
         }
 
+        #installed .service {
+            margin: 3px 0px;
+        }
         #available {
             display:none;
             clear:both;
@@ -64,7 +67,7 @@
             padding-top:10px;
         }
         #availList {
-            width:200px;
+            width:300px;
             height:200px;
             overflow-y:scroll;
             overflow-x:hidden;
@@ -143,7 +146,7 @@
         serviceMap = data;
         for (var key in serviceMap.installed) {
             var item = serviceMap.installed[key];
-            $("#installed").append("<p>" + item["title"] + " - <em>" + item["id"] +  "</em> - <a href='" + item["uri"] + "'>page</a></p>");
+            $("#installed").append("<div class='service'>" + item["title"] + " - <em>" + item["id"] +  "</em> - <a href='" + item["uri"] + "'>page</a></div>");
         }
         serviceMap.available.forEach(function(item) {
             $("#availList").append($("<p>" + item["title"]+"</p>").click(function() {

@@ -72,6 +72,7 @@ path.exists('Me/key',function(exists){
 serviceManager.scanDirectory("Connectors");
 serviceManager.scanDirectory("Collections");
 serviceManager.scanDirectory("Apps");
+serviceManager.scanDirectory("Auth");
 
 // look for existing things
 serviceManager.findInstalled();

@@ -10,6 +10,7 @@ touch ../keychain.json
 mv ../keychain.json ../keychain.json.test-tmp
 # Copy in to place the testing version
 cp -R Me ../Me
+cp keychain.json ../keychain.json
 # Run locker on our mock/fake Me dir
 if test -z "$1"; then
     echo "Running local tests"

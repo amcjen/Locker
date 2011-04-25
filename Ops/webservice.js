@@ -14,6 +14,7 @@ var lscheduler = require("lscheduler");
 var levents = require("levents");
 var serviceManager = require("lservicemanager");
 var keychain = require("lkeychain");
+var keychainClient = require('keychain-client');
 var dashboard = require(__dirname + "/dashboard.js");
 var express = require('express');
 var connect = require('connect');
@@ -100,26 +101,53 @@ locker.post('/install', function(req, res) {
 
 // ME PROXY
 // all of the requests to something installed (proxy them, moar future-safe)
-locker.get('/Me/*', function(req,res){
+locker.get('/Me/*', meGet);
+function meGet(req, res, authIndex){
     var slashIndex = req.url.indexOf("/", 4);
-    var id = req.url.substring(4, slashIndex);
-    var ppath = req.url.substring(slashIndex+1);
-    console.log("Proxying a get to " + ppath + " to service " + req.url);
+    var id, ppath;
+    if(slashIndex > 4) {
+        id = req.url.substring(4, slashIndex);
+        ppath = req.url.substring(slashIndex+1);
+    }
+    else {
+        id = req.url.substring(4);
+        ppath = '';
+    }
+    console.log("Proxying a get to " + ppath + " to service " + id);
     if(!serviceManager.isInstalled(id)) { // make sure it exists before it can be opened
+        console.log('id ' + id + ' is not installed!!!');
         res.writeHead(404);
         res.end("so sad, couldn't find "+id);
         return;
+    }   
+    function spawnAndProxy(meta, pth, rq, rs) {
+        if(authIndex!= null && authIndex >= 0) {
+            meta.authIndex = authIndex;
+        }
+        if (!serviceManager.isRunning(meta.id)) {
+            console.log("Having to spawn ", meta);
+            serviceManager.spawn(meta.id, function(){
+                proxied('GET', meta, pth, rq, rs);
+            });
+        } else {
+            proxied('GET', meta, pth, rq, res);
+        }
+        console.log("Proxy complete");
     }
-    if (!serviceManager.isRunning(id)) {
-        console.log("Having to spawn " + id);
-        serviceManager.spawn(id,function(){
-            proxied('GET', serviceManager.metaInfo(id),ppath,req,res);
-        });
+    
+    var metaInfo = serviceManager.metaInfo(id);
+    if(metaInfo.authRequired) {
+        console.log('for id ' + id + ', auth required');
+        var authServiceMetaInfo = serviceManager.metaInfo(metaInfo.authServiceID);
+        if(!authSaveQueue[metaInfo.authServiceID])
+            authSaveQueue[metaInfo.authServiceID] = [];
+        authSaveQueue[metaInfo.authServiceID].push(req);
+        res.redirect('http://localhost:8042/Me/' + metaInfo.authServiceID + '/?permServiceID=' + id);
     } else {
-        proxied('GET', serviceManager.metaInfo(id),ppath,req,res);
+        console.log('for id ' + id + ', auth not required');
+        spawnAndProxy(metaInfo, ppath, req, res);
     }
-    console.log("Proxy complete");
-});
+}
 
 // all of the requests to something installed (proxy them, moar future-safe)
 locker.post('/Me/*', function(req,res){
@@ -144,35 +172,28 @@ locker.post('/Me/*', function(req,res){
 });
 
 
+var authSaveQueue = {};
 // AUTH PROXY
-// all of the requests to something installed (proxy them, moar future-safe)
-locker.post('/auth/save', function(req,res) {
-    var serviceType = req.param('serviceType');
-    var 
-});
-
-// all of the requests to something installed (proxy them, moar future-safe)
-locker.get('/auth/*', function(req,res) {
-    var slashIndex = req.url.indexOf("/", 11);
-    var serviceType = req.url.substring(11, slashIndex);
-    var finalPath = req.url.substring(slashIndex+1);
-    
-    
-    console.log("Proxying a get to " + finalPath + " to service " + req.url);
-    if(!serviceManager.isInstalled(serviceType)) { // make sure it exists before it can be opened
-        res.writeHead(404);
-        res.end("so sad, couldn't find "+serviceType);
-        return;
-    }
-    if (!serviceManager.isRunning(serviceType)) {
-        console.log("Having to spawn " + serviceType);
-        serviceManager.spawn(id,function(){
-            proxied('GET', serviceManager.metaInfo(id),finalPath,req,res);
+// an auth process has completed
+locker.get('/auth/save', function(req,res) {
+    var authServiceID = req.param('authServiceID');
+    var permServiceID = req.param('permServiceID');
+    var creds = JSON.parse(req.param('creds'));
+    var metaString = req.param('meta');
+    var meta;
+    if(metaString)
+        meta = JSON.parse(metaString);
+    var authService = serviceManager.metaInfo(authServiceID);
+    keychainClient.putObject(authService.serviceType, creds, meta, function(err, data) {
+        keychainClient.grantPermission(permServiceID, authService.serviceType, data.index, function() {
+            if(authSaveQueue[authServiceID]) {
+                var permSvcMeta = serviceManager.metaInfo(permServiceID);
+                delete permSvcMeta.authRequired;
+                var queuedReq = authSaveQueue[authServiceID].shift();
+                meGet(queuedReq, res, data.index);
+            }
         });
-    } else {
-        proxied('GET', serviceManager.metaInfo(id),ppath,req,res);
-    }
-    console.log("Proxy complete");
+    });
 });
 
 
@@ -295,14 +316,21 @@ locker.post('/:svcId/event', function(req, res) {
 // KEYCHAIN
 // put an object in the keychain
 locker.post('/keychain/put', function(req, res) {
-    keychain.putObject(req.param('serviceType'), req.param('object'), req.param('meta'));
+    var index = keychain.putObject(req.param('serviceType'), req.param('object'), req.param('meta'));
     res.writeHead(200);
+    res.write(JSON.stringify({'index':index}));
     res.end();
 });
 
 // permission an object in the keychain
 locker.post('/keychain/permission', function(req, res) {
-    keychain.grantPermission(req.param('serviceID'), req.param('serviceType'), req.param('index'));
+    try {
+        keychain.grantPermission(req.param('serviceID'), req.param('serviceType'), req.param('index'));
+    } catch(err) {
+        res.writeHead(401);
+        res.end();
+        return;
+    }
     res.writeHead(200);
     res.end();
 });
@@ -366,7 +394,7 @@ function proxied(method, svc, ppath, req, res) {
             if(error) {
                 if(resp)
                     res.writeHead(resp.statusCode);
-                res.end(data);            
+                res.end(data);
             } else {
                 console.log(resp.headers);
                 if(resp.statusCode == 200) {//success!!

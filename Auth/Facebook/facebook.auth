@@ -1,0 +1,8 @@
+{
+    "title":"Facebook Authentication",
+    "action":"Authenticate a Facebook account",
+    "desc":"Handles Facebook OAuth.",
+    "requires":{"appID":"App ID", "appSecret": "App Secret"},
+    "serviceType":"oauth2/facebook",
+    "run":"node auth.js"
+}

@@ -68,7 +68,7 @@ function mapMetaData(file, type) {
 /**
 * The types of services that are currently understood
 */
-var scannedTypes = ["collection", "connector", "app"];
+var scannedTypes = ["collection", "connector", "app", "auth"];
 
 /**
 * Scans a directory for available services
@@ -84,7 +84,11 @@ exports.scanDirectory = function(dir) {
         }
         scannedTypes.forEach(function(scanType) {
             if (RegExp("\\." + scanType + "$").test(fullPath)) {
-                mapMetaData(fullPath, scanType);
+                try {
+                    mapMetaData(fullPath, scanType);
+                } catch(err) {
+                    console.log('could not parse and map file ' + fullPath + ' or type ' + scanType);
+                }
             }
         });
     }
@@ -127,6 +131,32 @@ exports.install = function(metaData) {
     if (!serviceInfo) {
         return serviceInfo;
     }
+    
+    if(serviceInfo.authRequired) {
+        var authDep = undefined;
+        for(var i in serviceMap.installed) {
+            var svcInfo = serviceMap.installed[i];
+            if(svcInfo.is == 'auth' && svcInfo.serviceType == serviceInfo.authRequired) {
+                authDep = svcInfo;
+                break;
+            }
+        }
+        if(!authDep) {
+            serviceMap.available.some(function(svcInfo) {
+                if(svcInfo.is == 'auth' && svcInfo.serviceType == serviceInfo.authRequired) {
+                    authDep = exports.install(svcInfo);
+                    return true;
+                }
+                return false;
+            });
+        }
+        if(!authDep) {
+            throw new Error('Could not find')
+        } else {
+            serviceInfo.authServiceID = authDep.id;
+        }
+    }
+    
     var hash = crypto.createHash('md5');
     hash.update(Math.random()+'');
     serviceInfo.id = hash.digest('hex');
@@ -190,6 +220,7 @@ exports.spawn = function(serviceId, callback) {
         lockerUrl:lconfig.lockerBase
     };
     app = spawn(run.shift(), run, {cwd: svc.srcdir});
+    fs.writeFileSync(lconfig.lockerDir + "/Me/" + svc.id + '/me.json', JSON.stringify(svc)); // save out all updated meta fields
     app.stderr.on('data', function (data) {
         var mod = console.outputModule
         console.outputModule = svc.title
