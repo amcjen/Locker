@@ -28,9 +28,6 @@ function authComplete(theauth, mongoCollections) {
     app.get('/newsfeed', newsfeed);
     app.get('/wall', wall);
     
-    sync.eventEmitter.on('status/facebook', function(eventObj) {
-        locker.event('status/facebook', eventObj);
-    });
     sync.eventEmitter.on('contact/facebook', function(eventObj) {
         locker.event('contact/facebook', eventObj);
     });
